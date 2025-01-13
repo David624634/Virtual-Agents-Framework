@@ -17,12 +17,17 @@ namespace i5.VirtualAgents.AgentTasks
         /// <summary>
         /// Used to determine if the agent should rotate by a specific angle or towards a specific angle.
         /// </summary>
-        public bool IsRotationByAngle{ get; protected set; }
+        public bool IsRotationByAngle { get; protected set; }
 
         /// <summary>
         /// The angle the agent should rotate by or towards
         /// </summary>
         public float Angle { get; protected set; }
+
+        /// <summary>
+        /// The position the agent should rotate towards
+        /// </summary>
+        public Vector3 Position { get; protected set; }
 
         /// <summary>
         /// The speed at which the agent should rotate
@@ -35,9 +40,7 @@ namespace i5.VirtualAgents.AgentTasks
         /// <param name="target">Target object of the rotation task</param>
         public AgentRotationTask(GameObject target, float speed = 10f)
         {
-            Vector3 position = target.transform.position;
-            position.y = 0;
-            TargetRotation = Quaternion.LookRotation(position);
+            Position = target.transform.position;
             IsRotationByAngle = false;
             Speed = speed;
         }
@@ -48,8 +51,7 @@ namespace i5.VirtualAgents.AgentTasks
         /// <param name="coordinates">Coordinates of the rotation task</param>
         public AgentRotationTask(Vector3 coordinates, float speed = 10f)
         {
-            coordinates.y = 0;
-            TargetRotation = Quaternion.LookRotation(coordinates);
+            Position = coordinates;
             IsRotationByAngle = false;
             Speed = speed;
         }
@@ -85,6 +87,11 @@ namespace i5.VirtualAgents.AgentTasks
         {
             Animator animator = agent.GetComponent<Animator>();
             base.StartExecution(agent);
+
+            // For target and coordinates rotation
+            float angle = Vector3.SignedAngle(agent.transform.forward, Position - agent.transform.position, Vector3.up);
+            TargetRotation = agent.transform.rotation * Quaternion.Euler(0, angle, 0);
+
             //For Angle rotation
             if(IsRotationByAngle)
             {
