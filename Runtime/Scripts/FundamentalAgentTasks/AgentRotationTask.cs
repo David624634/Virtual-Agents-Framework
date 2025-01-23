@@ -15,9 +15,14 @@ namespace i5.VirtualAgents.AgentTasks
         public Quaternion TargetRotation { get; protected set; }
 
         /// <summary>
-        /// Used to determine if the agent should rotate by a specific angle or towards a specific angle.
+        /// Used to determine if the agent should rotate by a specific angle
         /// </summary>
         public bool IsRotationByAngle { get; protected set; }
+
+        /// <summary>
+        /// Used to determine if the agent should rotate towards a specific angle.
+        /// </summary>
+        public bool IsRotationTowardsAngle { get; protected set; }
 
         /// <summary>
         /// The angle the agent should rotate by or towards
@@ -70,6 +75,7 @@ namespace i5.VirtualAgents.AgentTasks
             if (!isRotationByAngle)
             {
                 TargetRotation = Quaternion.Euler(0, angle, 0);
+                IsRotationTowardsAngle = true;
             }
             else
             {
@@ -89,8 +95,11 @@ namespace i5.VirtualAgents.AgentTasks
             base.StartExecution(agent);
 
             // For target and coordinates rotation
-            float angle = Vector3.SignedAngle(agent.transform.forward, Position - agent.transform.position, Vector3.up);
-            TargetRotation = agent.transform.rotation * Quaternion.Euler(0, angle, 0);
+            if (!IsRotationTowardsAngle && !IsRotationByAngle)
+            {
+                float angle = Vector3.SignedAngle(agent.transform.forward, Position - agent.transform.position, Vector3.up);
+                TargetRotation = agent.transform.rotation * Quaternion.Euler(0, angle, 0);
+            }
 
             //For Angle rotation
             if(IsRotationByAngle)
