@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 
 namespace i5.VirtualAgents.AgentTasks
@@ -30,9 +30,9 @@ namespace i5.VirtualAgents.AgentTasks
         public float Angle { get; protected set; }
 
         /// <summary>
-        /// The position the agent should rotate towards
+        /// The transform the agent should rotate towards
         /// </summary>
-        public Vector3 Position { get; protected set; }
+        public Transform TargetTransform { get; protected set; }
 
         /// <summary>
         /// The speed at which the agent should rotate
@@ -40,12 +40,12 @@ namespace i5.VirtualAgents.AgentTasks
         public float Speed { get; protected set; }
 
         /// <summary>
-        /// Create an AgentRotationTask using a target object to turn towards
+        /// Create an AgentRotationTask using a target object to turn towards, position will be evaluated when task is started
         /// </summary>
         /// <param name="target">Target object of the rotation task</param>
-        public AgentRotationTask(GameObject target, float speed = 10f)
+        public AgentRotationTask(GameObject target, float speed = 1f)
         {
-            Position = target.transform.position;
+            TargetTransform = target.transform;
             IsRotationByAngle = false;
             Speed = speed;
         }
@@ -54,9 +54,10 @@ namespace i5.VirtualAgents.AgentTasks
         /// Create an AgentRotationTask using the destination coordinates
         /// </summary>
         /// <param name="coordinates">Coordinates of the rotation task</param>
-        public AgentRotationTask(Vector3 coordinates, float speed = 10f)
+        public AgentRotationTask(Vector3 coordinates, float speed = 1f)
         {
-            Position = coordinates;
+            TargetTransform = new GameObject().transform;
+            TargetTransform.position = coordinates;
             IsRotationByAngle = false;
             Speed = speed;
         }
@@ -69,7 +70,7 @@ namespace i5.VirtualAgents.AgentTasks
         /// </summary>
         /// <param name="angle">The angle to rotate by or towards, in degrees</param>
         /// <param name="isRotationByAngle">True if agent should rotate by "angle" degrees, false if the rotation value of the agent should be set to "angle"</param>
-        public AgentRotationTask(float angle, bool isRotationByAngle = true, float speed= 10f)
+        public AgentRotationTask(float angle, bool isRotationByAngle = true, float speed = 1f)
         {
             IsRotationByAngle = isRotationByAngle;
             if (!isRotationByAngle)
@@ -97,12 +98,14 @@ namespace i5.VirtualAgents.AgentTasks
             // For target and coordinates rotation
             if (!IsRotationTowardsAngle && !IsRotationByAngle)
             {
-                float angle = Vector3.SignedAngle(agent.transform.forward, Position - agent.transform.position, Vector3.up);
+                Vector3 newTargetPosition = new Vector3(TargetTransform.position.x, 0, TargetTransform.position.z);
+                Vector3 newAgentPosition = new Vector3(agent.transform.position.x, 0, agent.transform.position.z);
+                float angle = Vector3.SignedAngle(agent.transform.forward, newTargetPosition - newAgentPosition, Vector3.up);
                 TargetRotation = agent.transform.rotation * Quaternion.Euler(0, angle, 0);
             }
 
             //For Angle rotation
-            if(IsRotationByAngle)
+            if (IsRotationByAngle)
             {
                 TargetRotation = agent.transform.rotation * Quaternion.Euler(0, Angle, 0);
             }
@@ -112,9 +115,9 @@ namespace i5.VirtualAgents.AgentTasks
         private IEnumerator Rotate(Transform transform)
         {
             float time = 0;
-            while (Vector3.Distance(transform.rotation.eulerAngles, TargetRotation.eulerAngles) > 0.01f)
+            while (Quaternion.Angle(transform.rotation, TargetRotation) > 0.01f)
             {
-                time += Time.deltaTime/Speed; //to control the speed of rotation
+                time += Time.deltaTime * Speed; //to control the speed of rotation
                 // Rotate the agent a step closer to the target
                 transform.rotation = Quaternion.Slerp(transform.rotation, TargetRotation, time);
                 yield return null;
