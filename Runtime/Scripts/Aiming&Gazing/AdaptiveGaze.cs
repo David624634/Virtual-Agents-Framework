@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Random = UnityEngine.Random;
 
 namespace i5.VirtualAgents
 {
@@ -63,7 +65,7 @@ namespace i5.VirtualAgents
         /// The maximum number of targets in range that are considered for the gaze
         /// </summary>
         [Tooltip("The maximum number of targets in range that are considered for the gaze")]
-        [SerializeField] private int maxNumberOfTargetsInRange = 50;
+        [SerializeField] private const int maxNumberOfTargetsInRange = 50;
 
         /// <summary>
         /// The interval in seconds in which the agent looks for new targets when not moving
@@ -183,7 +185,7 @@ namespace i5.VirtualAgents
         /// </summary>
         public void Activate()
         {
-            if (aimScript != null)
+            if (aimScript)
                 aimScript.enabled = true;
 
             this.enabled = true;
@@ -194,7 +196,7 @@ namespace i5.VirtualAgents
         /// </summary>
         public void Deactivate()
         {
-            if (aimScript != null)
+            if (aimScript)
                 aimScript.Stop();
 
             this.enabled = false;
@@ -233,7 +235,7 @@ namespace i5.VirtualAgents
 
         private void UpdatePositionOfTarget()
         {
-            if (OverwriteGazeTarget != null)
+            if (OverwriteGazeTarget)
             {
                 aimScript.SetTargetTransform(OverwriteGazeTarget);
             }
@@ -246,7 +248,8 @@ namespace i5.VirtualAgents
                 aimScript.Stop();
             }
         }
-
+        
+        private Collider[] colliders = new Collider[maxNumberOfTargetsInRange];
         private void CheckWhichTargetsAreNearbyAndVisible()
         {
             timer += Time.deltaTime;
@@ -264,7 +267,7 @@ namespace i5.VirtualAgents
 
 
             // Check for nearby targets
-            Collider[] colliders = new Collider[maxNumberOfTargetsInRange];
+            Array.Clear(colliders, 0, colliders.Length);
             // center is calculated so that corner of the bounding cube is at the position of the agent
             Vector3 center = transform.position + transform.forward * Mathf.Sqrt(2 * detectionRadius * detectionRadius);
 
@@ -282,7 +285,7 @@ namespace i5.VirtualAgents
             {
                 AdaptiveGazeTarget target = colliders[i].GetComponent<AdaptiveGazeTarget>();
                 // Check that the object has an PossibleLookAtTarget component and that it is not picked up
-                if (target == null || !target.canCurrentlyBeLookedAt)
+                if (!target || !target.canCurrentlyBeLookedAt)
                 {
                     continue;
                 }
@@ -325,13 +328,8 @@ namespace i5.VirtualAgents
             }
 
             // Remove targets that are no longer within the detection radius
-            foreach (AdaptiveGazeTargetInfo targetInfo in nearbyLookAtTargets.ToList())
-            {
-                if (targetInfo.isCurrentlyNearby == false)
-                {
-                    nearbyLookAtTargets.Remove(targetInfo);
-                }
-            }
+            nearbyLookAtTargets.RemoveAll(targetInfo => targetInfo.isCurrentlyNearby == false);
+            
             // Calculate the most interesting target and select one by chance from the list
             CalculateInterestInTargetAndSelectOne();
         }
@@ -385,44 +383,44 @@ namespace i5.VirtualAgents
                 // No objects available
                 return null;
             }
-            else
-            {
-                double randomValue = Random.value;
 
-                if (randomValue <= chanceHighestRankedTarget)
-                {
-                    // Select the first target
-                    return nearbyLookAtTargets[0];
-                }
-                else if (chanceHighestRankedTarget < randomValue && randomValue <= chanceSecondHighestTarget)
-                {
-                    // Select the second target or first target when second target is not available
-                    if (nearbyLookAtTargets.Count > 1)
-                        return nearbyLookAtTargets[1];
-                    else
-                        return nearbyLookAtTargets[0];
-                }
-                else if (chanceSecondHighestTarget < randomValue && randomValue <= chanceThirdHighestTarget)
-                {
-                    // Select the third target or first target when second target is not available
-                    if (nearbyLookAtTargets.Count > 2)
-                        return nearbyLookAtTargets[2];
-                    else
-                        return nearbyLookAtTargets[0];
-                }
-                else if (chanceThirdHighestTarget < randomValue && randomValue <= chanceRandomTarget)
-                {
-                    // Select a random target
-                    int randomIndex = Random.Range(0, nearbyLookAtTargets.Count);
-                    return nearbyLookAtTargets[randomIndex];
-                }
-                else if (chanceRandomTarget < randomValue && randomValue <= chanceIdleTarget)
-                {
-                    // Select no target and idle
-                    return null;
-                }
+            double randomValue = Random.value;
+
+            if (randomValue <= chanceHighestRankedTarget)
+            {
+                // Select the first target
+                return nearbyLookAtTargets[0];
+            }
+
+            if (chanceHighestRankedTarget < randomValue && randomValue <= chanceSecondHighestTarget)
+            {
+                // Select the second target or first target when second target is not available
+                if (nearbyLookAtTargets.Count > 1)
+                    return nearbyLookAtTargets[1];
+                return nearbyLookAtTargets[0];
+            }
+
+            if (chanceSecondHighestTarget < randomValue && randomValue <= chanceThirdHighestTarget)
+            {
+                // Select the third target or first target when second target is not available
+                if (nearbyLookAtTargets.Count > 2)
+                    return nearbyLookAtTargets[2];
+                return nearbyLookAtTargets[0];
+            }
+
+            if (chanceThirdHighestTarget < randomValue && randomValue <= chanceRandomTarget)
+            {
+                // Select a random target
+                int randomIndex = Random.Range(0, nearbyLookAtTargets.Count);
+                return nearbyLookAtTargets[randomIndex];
+            }
+
+            if (chanceRandomTarget < randomValue && randomValue <= chanceIdleTarget)
+            {
+                // Select no target and idle
                 return null;
             }
+            return null;
         }
     }
 }
