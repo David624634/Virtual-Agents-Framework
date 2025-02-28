@@ -2,6 +2,7 @@ using i5.VirtualAgents.Utilities;
 using System;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Serialization;
 
 namespace i5.VirtualAgents
 {
@@ -17,7 +18,7 @@ namespace i5.VirtualAgents
 		[SerializeField] protected Transform targetTransform;
 
 		/// <summary>
-		/// The Transform of the agent childobjects that should directly aim at the target
+		/// The Transform of the agent childobjects that should directly aim at the target, e.g. the tip of a finger 
 		/// </summary>
 		[Tooltip("The Transform of the agent childobjects that should directly aim at the target")]
 		[SerializeField] protected Transform aimTransform;
@@ -28,9 +29,9 @@ namespace i5.VirtualAgents
 		protected AimDirection aimDirection = AimDirection.Y;
 
 		/// <summary>
-		/// The Transform that is acutally looked at and will follow the target smootly
+		/// The Position that is actually looked at and which will follow the target smoothly
 		/// </summary>
-		protected Transform targetFollower;
+		protected Vector3 targetFollower = Vector3.zero;
 
 		/// <summary>
 		/// The speed at which the agent looks at the target
@@ -66,10 +67,10 @@ namespace i5.VirtualAgents
 		[SerializeField] protected float distanceLimit = 1.5f;
 
 		/// <summary>
-		/// The postion where the targetFollower should be placed when no target is set
+		/// The position where the targetFollower should be placed when no target is set
 		/// </summary>
-		[Tooltip("The postion where the targetFollower should be placed when no target is set")]
-		[SerializeField] protected Transform startingTransform;
+		[Tooltip("The position where the targetFollower should be placed when no target is set")]
+		[SerializeField] protected Vector3 startingPosition = Vector3.zero;
 
 		/// <summary>
 		/// The bones that should be moved to accomplish the aiming
@@ -122,7 +123,7 @@ namespace i5.VirtualAgents
         public void SetupAndStart(Transform target, bool shouldDestroyItself = true)
 		{
 			SetBonePreset();
-			this.ShouldDestroyItself = shouldDestroyItself;
+			ShouldDestroyItself = shouldDestroyItself;
 			SetTargetTransform(target);
 		}
 
@@ -131,7 +132,7 @@ namespace i5.VirtualAgents
 		/// </summary>
 		public void Stop()
 		{
-			this.targetTransform = null;
+			targetTransform = null;
 		}
 
 		// LateUpdate is called once per frame, after Update
@@ -139,7 +140,7 @@ namespace i5.VirtualAgents
 		{
 			TemporarilyIncreaseLookSpeed(navMeshAgent.velocity.magnitude);
 
-			if (targetFollower != null)
+			if (targetFollower != Vector3.zero)
 			{
 				UpdateTargetFollower();
 
@@ -161,7 +162,7 @@ namespace i5.VirtualAgents
 		protected Vector3 CalculateWhereToLook()
 		{
 
-			Vector3 targetDirection = targetFollower.position - aimTransform.position;
+			Vector3 targetDirection = targetFollower - aimTransform.position;
 			Vector3 aimDirection = GetAimDirectionVector();
 			float blendOut = 0.0f;
 			float targetAngle = Vector3.Angle(targetDirection, aimDirection);
@@ -186,18 +187,18 @@ namespace i5.VirtualAgents
 			Vector3 targetPosition;
 
 			// If targetTransform was not removed in Stop()
-			if (targetTransform != null)
+			if (targetTransform)
 			{
 				targetPosition = targetTransform.position;
 				increaseLookSpeedBy = 1;
 			}
 			else
 			{
-				// Return to the starting posiont
-				targetPosition = startingTransform.position;
+				// Return to the starting point
+				targetPosition = transform.TransformPoint(startingPosition);;
 
 
-				if (Vector3.Distance(targetFollower.position, targetPosition) >= 0.05f)
+				if (Vector3.Distance(targetFollower, targetPosition) >= 0.05f)
 				{
 					// increase LookSpeed over time to finish up the movement
 					increaseLookSpeedBy = Math.Min(10, increaseLookSpeedBy + 0.7f);
@@ -205,11 +206,11 @@ namespace i5.VirtualAgents
 				}
 				else
 				{
+					targetFollower = transform.TransformPoint(startingPosition);
 					// When target position of the standard look is reached destroy this component
 					Weight = 0f;
 					if (ShouldDestroyItself)
 					{
-						Destroy(targetFollower.gameObject);
 						Destroy(this);
 					}
 				}
@@ -217,7 +218,7 @@ namespace i5.VirtualAgents
 			}
 
 			// Smooth transition to target position
-			targetFollower.transform.position = Vector3.Lerp(targetFollower.transform.position, targetPosition, Time.deltaTime * (currentLookSpeed * increaseLookSpeedBy));
+			targetFollower = Vector3.Lerp(targetFollower, targetPosition, Time.deltaTime * (currentLookSpeed * increaseLookSpeedBy));
 		}
 
 
@@ -232,11 +233,11 @@ namespace i5.VirtualAgents
 
 		protected Vector3 GetAimDirectionVector()
 		{
-			if (this.aimDirection == AimDirection.Y)
+			if (aimDirection == AimDirection.Y)
 				return aimTransform.up.normalized;
-			if (this.aimDirection == AimDirection.X)
+			if (aimDirection == AimDirection.X)
 				return aimTransform.right.normalized;
-			if (this.aimDirection == AimDirection.Z)
+			if (aimDirection == AimDirection.Z)
 				return aimTransform.forward;
 
 			return aimTransform.up.normalized;
@@ -245,27 +246,21 @@ namespace i5.VirtualAgents
 		public void SetTargetTransform(Transform targetTransform)
 		{
 			// If there is no targetFollower, create one
-			if (targetFollower == null)
+			if (targetFollower == Vector3.zero)
 			{
-				targetFollower = new GameObject().transform;
-				targetFollower.gameObject.name = "TargetFollower";
-				DebugDrawTransformSphere targetVisualizer = targetFollower.gameObject.AddComponent<DebugDrawTransformSphere>();
-				targetVisualizer.color = Color.red;
-				targetVisualizer.radius = 0.50f;
+				targetFollower = new Vector3();
 
-				// Set starting position of targetFollower 1 unit along the current aiming direction getAimDirectionVektor() * 1f +
-				this.startingTransform = new GameObject().transform;
-				this.startingTransform.gameObject.name = "StartingPositon";
-				this.startingTransform.position = aimTransform.position + (GetAimDirectionVector() * 1f);
-				this.startingTransform.parent = this.transform;
-				this.targetFollower.position = startingTransform.position;
+				// Set starting position of targetFollower 1 unit along the current aiming direction getAimDirectionVector() * 1f
+				startingPosition = new Vector3();
+				startingPosition = transform.InverseTransformPoint(aimTransform.position + (GetAimDirectionVector() * 1f));
+				targetFollower = transform.TransformPoint(startingPosition);
 			}
 
 			this.targetTransform = targetTransform;
 		}
 		public void TemporarilyIncreaseLookSpeed(float increase)
 		{
-			this.currentLookSpeed = LookSpeed + increase;
+			currentLookSpeed = LookSpeed + increase;
 		}
 
 		/// <summary>
@@ -290,7 +285,7 @@ namespace i5.VirtualAgents
 		public abstract void SetBonePreset();
 
 
-		protected void GetBoneTransformsFromAnimatior(HumanBodyBones aimingTip)
+		protected void GetBoneTransformsFromAnimator(HumanBodyBones aimingTip)
 		{
 			Animator animator = GetComponent<Animator>();
 			boneTransforms = new Transform[humanBones.Length];
@@ -305,10 +300,15 @@ namespace i5.VirtualAgents
 		protected void OnDrawGizmos()
 		{
 			Gizmos.color = Color.green;
-			if (startingTransform)
+			if (startingPosition != Vector3.zero)
 			{
-				Gizmos.DrawWireSphere(startingTransform.position, 0.25f);
-				Gizmos.DrawLine(aimTransform.position, startingTransform.position);
+				Gizmos.DrawWireSphere(transform.TransformPoint(startingPosition), 0.25f);
+				Gizmos.DrawLine(aimTransform.position, transform.TransformPoint(startingPosition));
+			}
+			Gizmos.color = Color.red;
+			if (targetFollower != Vector3.zero)
+			{
+				Gizmos.DrawWireSphere(targetFollower, 0.25f);
 			}
 		}
 	}
