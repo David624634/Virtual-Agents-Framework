@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Random = UnityEngine.Random;
 
 namespace i5.VirtualAgents
 {
@@ -12,12 +14,39 @@ namespace i5.VirtualAgents
     {
         private class AdaptiveGazeTargetInfo
         {
+            /// <summary>
+            /// The gaze target that is looked at
+            /// </summary>
             public AdaptiveGazeTarget lookAtTarget = null;
+
+            /// <summary>
+            /// Distance to the target
+            /// </summary>
             public float distance = 0;
+
+            /// <summary>
+            /// The importance of the item for the agent. The higher the value, the more liekly it is the agent to look at it. Increases during runtime resets novelty for the agent
+            /// </summary>
             public float importance = 0;
+
+            /// <summary>
+            /// The time the agent looked at the target
+            /// </summary>
             public float timeLookedAt = 0;
+
+            /// <summary>
+            /// The novelty of the target
+            /// </summary>
             public float novelty = 0;
+
+            /// <summary>
+            /// This value is calculated based on the importance, distance, time looked at and novelty
+            /// </summary>
             public float calcValueOfInterest = 0;
+
+            /// <summary>
+            /// Specifies if the target is currently nearby
+            /// </summary>
             public bool isCurrentlyNearby = false;
         }
         /// <summary>
@@ -26,36 +55,76 @@ namespace i5.VirtualAgents
         [Tooltip("When this transform is set, the gaze target is overwritten and the agent looks at this transform constantly without interruption (within the boundaries specified by the AimAt Script, e.g. distanceLimit and angleLimit)")]
         public Transform OverwriteGazeTarget = null;
 
+        /// <summary>
+        /// The radius in which the agent looks for gaze targets
+        /// </summary>
+        [Tooltip("The radius in which the agent looks for gaze targets")]
         [SerializeField] private float detectionRadius = 10f;
-        [SerializeField] private int maxNumberOfTargetsInRange = 50;
 
-        [Tooltip("The interval in seconds in which the agent looks for new targets when not moving.")]
+        /// <summary>
+        /// The maximum number of targets in range that are considered for the gaze
+        /// </summary>
+        [Tooltip("The maximum number of targets in range that are considered for the gaze")]
+        [SerializeField] private const int maxNumberOfTargetsInRange = 50;
+
+        /// <summary>
+        /// The interval in seconds in which the agent looks for new targets when not moving
+        /// </summary>
+        [Tooltip("The interval in seconds in which the agent looks for new targets when not moving")]
         [SerializeField] private float detectionIntervalWhenIdle = 3f;
-        [Tooltip("The interval in seconds in which the agent looks for new targets when moving.")]
+
+        /// <summary>
+        /// The interval in seconds in which the agent looks for new targets when moving
+        /// </summary>
+        [Tooltip("The interval in seconds in which the agent looks for new targets when moving")]
         [SerializeField] private float detectionIntervalWhenWalking = 0.5f;
+
         private float detectionInterval = 3f;
 
         // Define the chances for target selection, e.g. chance for the second most interesting target in the list to be looked at
-        [Tooltip("The chance that the agent looks at the highest ranked target based on the algorithm, see documentation.")]
+        /// <summary>
+        /// The chance that the agent looks at the highest ranked target based on the algorithm, see documentation
+        /// </summary>
+        [Tooltip("The chance that the agent looks at the highest ranked target based on the algorithm, see documentation")]
         [Range(0f, 1f)]
         [SerializeField] private float chanceHighestRankedTarget = 0.5f;
-        [Tooltip("The chance that the agent looks at the second highest ranked target based on the algorithm, see documentation.")]
+
+        /// <summary>
+        /// The chance that the agent looks at the second-highest ranked target based on the algorithm, see documentation
+        /// </summary>
+        [Tooltip("The chance that the agent looks at the second-highest ranked target based on the algorithm, see documentation")]
         [Range(0f, 1f)]
         [SerializeField] private float chanceSecondHighestTarget = 0.1f;
-        [Tooltip("The chance that the agent looks at the third highest ranked target based on the algorithm, see documentation.")]
+
+        /// <summary>
+        /// The chance that the agent looks at the third highest ranked target based on the algorithm, see documentation
+        /// </summary>
+        [Tooltip("The chance that the agent looks at the third highest ranked target based on the algorithm, see documentation")]
         [Range(0f, 1f)]
         [SerializeField] private float chanceThirdHighestTarget = 0.1f;
+
+        /// <summary>
+        /// The chance that the agent looks at a random target
+        /// </summary>
         [Tooltip("The chance that the agent looks at a random target")]
         [Range(0f, 1f)]
         [SerializeField] private float chanceRandomTarget = 0.05f;
+
+        /// <summary>
+        /// The chance that the agent does not look at any target and looks ahead
+        /// </summary>
         [Tooltip("The chance that the agent does not look at any target and looks ahead")]
         [Range(0f, 1f)]
         [SerializeField] private float chanceIdleTarget = 0.25f;
 
+        /// <summary>
+        /// The speed at which the agent looks and switches between targets
+        /// </summary>
         [Tooltip("The speed at which the agent looks and switches between targets")]
         [SerializeField] private float lookSpeed = 2f;
 
         private AdaptiveGazeTargetInfo currentTargetOfInterest;
+
         /// <summary>
         /// The object layers that are checked for gaze targets, default is everything for the sake of simplicity.
         /// It is recommended to set this to a more specific layer mask to improve performance.
@@ -116,7 +185,7 @@ namespace i5.VirtualAgents
         /// </summary>
         public void Activate()
         {
-            if (aimScript != null)
+            if (aimScript)
                 aimScript.enabled = true;
 
             this.enabled = true;
@@ -127,7 +196,7 @@ namespace i5.VirtualAgents
         /// </summary>
         public void Deactivate()
         {
-            if (aimScript != null)
+            if (aimScript)
                 aimScript.Stop();
 
             this.enabled = false;
@@ -166,7 +235,7 @@ namespace i5.VirtualAgents
 
         private void UpdatePositionOfTarget()
         {
-            if (OverwriteGazeTarget != null)
+            if (OverwriteGazeTarget)
             {
                 aimScript.SetTargetTransform(OverwriteGazeTarget);
             }
@@ -179,7 +248,8 @@ namespace i5.VirtualAgents
                 aimScript.Stop();
             }
         }
-
+        
+        private Collider[] colliders = new Collider[maxNumberOfTargetsInRange];
         private void CheckWhichTargetsAreNearbyAndVisible()
         {
             timer += Time.deltaTime;
@@ -197,7 +267,7 @@ namespace i5.VirtualAgents
 
 
             // Check for nearby targets
-            Collider[] colliders = new Collider[maxNumberOfTargetsInRange];
+            Array.Clear(colliders, 0, colliders.Length);
             // center is calculated so that corner of the bounding cube is at the position of the agent
             Vector3 center = transform.position + transform.forward * Mathf.Sqrt(2 * detectionRadius * detectionRadius);
 
@@ -215,7 +285,7 @@ namespace i5.VirtualAgents
             {
                 AdaptiveGazeTarget target = colliders[i].GetComponent<AdaptiveGazeTarget>();
                 // Check that the object has an PossibleLookAtTarget component and that it is not picked up
-                if (target == null || !target.canCurrentlyBeLookedAt)
+                if (!target || !target.canCurrentlyBeLookedAt)
                 {
                     continue;
                 }
@@ -258,13 +328,8 @@ namespace i5.VirtualAgents
             }
 
             // Remove targets that are no longer within the detection radius
-            foreach (AdaptiveGazeTargetInfo targetInfo in nearbyLookAtTargets.ToList())
-            {
-                if (targetInfo.isCurrentlyNearby == false)
-                {
-                    nearbyLookAtTargets.Remove(targetInfo);
-                }
-            }
+            nearbyLookAtTargets.RemoveAll(targetInfo => targetInfo.isCurrentlyNearby == false);
+            
             // Calculate the most interesting target and select one by chance from the list
             CalculateInterestInTargetAndSelectOne();
         }
@@ -318,44 +383,44 @@ namespace i5.VirtualAgents
                 // No objects available
                 return null;
             }
-            else
-            {
-                double randomValue = Random.value;
 
-                if (randomValue <= chanceHighestRankedTarget)
-                {
-                    // Select the first target
-                    return nearbyLookAtTargets[0];
-                }
-                else if (chanceHighestRankedTarget < randomValue && randomValue <= chanceSecondHighestTarget)
-                {
-                    // Select the second target or first target when second target is not available
-                    if (nearbyLookAtTargets.Count > 1)
-                        return nearbyLookAtTargets[1];
-                    else
-                        return nearbyLookAtTargets[0];
-                }
-                else if (chanceSecondHighestTarget < randomValue && randomValue <= chanceThirdHighestTarget)
-                {
-                    // Select the third target or first target when second target is not available
-                    if (nearbyLookAtTargets.Count > 2)
-                        return nearbyLookAtTargets[2];
-                    else
-                        return nearbyLookAtTargets[0];
-                }
-                else if (chanceThirdHighestTarget < randomValue && randomValue <= chanceRandomTarget)
-                {
-                    // Select a random target
-                    int randomIndex = Random.Range(0, nearbyLookAtTargets.Count);
-                    return nearbyLookAtTargets[randomIndex];
-                }
-                else if (chanceRandomTarget < randomValue && randomValue <= chanceIdleTarget)
-                {
-                    // Select no target and idle
-                    return null;
-                }
+            double randomValue = Random.value;
+
+            if (randomValue <= chanceHighestRankedTarget)
+            {
+                // Select the first target
+                return nearbyLookAtTargets[0];
+            }
+
+            if (chanceHighestRankedTarget < randomValue && randomValue <= chanceSecondHighestTarget)
+            {
+                // Select the second target or first target when second target is not available
+                if (nearbyLookAtTargets.Count > 1)
+                    return nearbyLookAtTargets[1];
+                return nearbyLookAtTargets[0];
+            }
+
+            if (chanceSecondHighestTarget < randomValue && randomValue <= chanceThirdHighestTarget)
+            {
+                // Select the third target or first target when second target is not available
+                if (nearbyLookAtTargets.Count > 2)
+                    return nearbyLookAtTargets[2];
+                return nearbyLookAtTargets[0];
+            }
+
+            if (chanceThirdHighestTarget < randomValue && randomValue <= chanceRandomTarget)
+            {
+                // Select a random target
+                int randomIndex = Random.Range(0, nearbyLookAtTargets.Count);
+                return nearbyLookAtTargets[randomIndex];
+            }
+
+            if (chanceRandomTarget < randomValue && randomValue <= chanceIdleTarget)
+            {
+                // Select no target and idle
                 return null;
             }
+            return null;
         }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,7 +7,15 @@ namespace i5.VirtualAgents
 {
     public abstract class BaseTask : ITask
     {
+        /// <summary>
+        /// The state of the task
+        /// </summary>
         public TaskState State { get; set; }
+
+        /// <summary>
+        /// Event called when the task is started
+        /// </summary>
+        public event Action OnTaskStarted;
 
         /// <summary>
         /// Called by the executing agent on running tasks
@@ -23,7 +32,10 @@ namespace i5.VirtualAgents
         /// Starts the task's execution
         /// </summary>
         /// <param name="agent">The agent which should execute this task</param>
-        public virtual void StartExecution(Agent executingAgent){ }
+        public virtual void StartExecution(Agent executingAgent)
+        {
+            OnTaskStarted?.Invoke();
+        }
 
         /// <summary>
         /// Called when the task succeedes or fails
@@ -40,6 +52,15 @@ namespace i5.VirtualAgents
         }
 
         /// <summary>
+        /// Can be used to abort the task outside of its Update method
+        /// </summary>
+        public void StopAsAborted()
+        {
+            State = TaskState.Aborted;
+            StopExecution();
+        }
+
+        /// <summary>
         /// Can be used to let the task succseed outside of its Update method
         /// </summary>
         public void StopAsSucceeded()
@@ -48,6 +69,11 @@ namespace i5.VirtualAgents
             StopExecution();
         }
 
+        /// <summary>
+        /// Updates the State and automatically invokes StartExecution() on first update and StopExeuction() when task succeeds/fails.
+        /// </summary>
+        /// <param name="excutingAgent"></param>
+        /// <returns></returns>
         public TaskState Tick(Agent excutingAgent)
         {
             //Is the task already finished?

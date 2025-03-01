@@ -47,16 +47,21 @@ At this point it is recommended to take a look at the samples provided with the 
 4. On the right side, expand the samples section.
    Here, you can find a list of available examples.
 5. Click the import button to download the samples.
-   They are saved in your Assets folder in a folder ``Samples/Virtual Agents Framework/1.2.0``. Every sample provides one or more documentation object that explains how the scene and the functions behind that scene work, and also links to recommended manual pages here.
+   They are saved in your Assets folder in a folder ``Samples/Virtual Agents Framework/{version}``.
+1. Every sample provides one or more documentation object that explains how the scene and the functions behind that scene work, and also links to recommended manual pages here.
 
 Going from least to most complex, it is recommended to look at the samples in the following order: 
 1. Navigation Sample
 2. Wait Sample
 3. Dynamic Navigation Sample
-4. Parallel Task Sample ([manual page](parallel-tasks.md))
-5. Aiming Sample ([manual page](aiming.md))
-6. Adaptive Gaze Sample ([manual page](adaptive-gaze.md))
-7. Item Pickup Sample ([manual page](items.md))
+4. Rotation Sample ([manual page](rotation.md))
+5. Audio Sample ([manual page](audio.md))
+6. TaskBundle Sample ([manual page](task-bundle.md))
+7. Parallel Task Sample ([manual page](parallel-tasks.md))
+8. Aiming Sample ([manual page](aiming.md))
+9. Sitting Sample ([manual page](sitting.md))
+10. Adaptive Gaze Sample ([manual page](adaptive-gaze.md))
+11. Item Pickup Sample ([manual page](items.md))
 
 ## Customization of agents
 To make the application look more appealing from the beginning custom agent models can be used, see [Adding Own Agent Models and Animations](own-agents.md) for that.
